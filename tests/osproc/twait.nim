@@ -17,8 +17,8 @@ os.sleep(1000) # make sure process has exited already
 let atStart = getTime()
 const msWait = 2000
 
-try: 
-  discard waitForExit(p, msWait) 
+try:
+  discard waitForExit(p, msWait)
 except OSError:
   echo "OSException"
 

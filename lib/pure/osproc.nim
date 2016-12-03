@@ -1109,28 +1109,13 @@ elif not defined(useNimRtl):
           if clock_gettime(CLOCK_REALTIME, stspec) == -1:
             raiseOSError(osLastError())
           while true:
+            if not running(p):
+              break
             let res = sigtimedwait(nmask, sinfo, tmspec)
-            if res == SIGCHLD:
-              if sinfo.si_pid == p.id:
-                var status : cint = 1
-                if waitpid(p.id, status, 0) < 0:
-                  raiseOSError(osLastError())
-                p.exitStatus = status
-                break
-              else:
-                # we have SIGCHLD, but not for process we are waiting,
-                # so we need to adjust timeout value and continue
-                if clock_gettime(CLOCK_REALTIME, enspec) == -1:
-                  raiseOSError(osLastError())
-                adjustTimeout(tmspec, stspec, enspec)
-            elif res < 0:
+            if res < 0:
               let err = osLastError()
               if err.cint == EINTR:
-                # we have received another signal, so we need to
-                # adjust timeout and continue
-                if clock_gettime(CLOCK_REALTIME, enspec) == -1:
-                  raiseOSError(osLastError())
-                adjustTimeout(tmspec, stspec, enspec)
+                discard # try again
               elif err.cint == EAGAIN:
                 # timeout expired, so we trying to kill process
                 if posix.kill(p.id, SIGKILL) == -1:
@@ -1142,6 +1127,10 @@ elif not defined(useNimRtl):
                 break
               else:
                 raiseOSError(err)
+            if clock_gettime(CLOCK_REALTIME, enspec) == -1:
+              raiseOSError(osLastError())
+            adjustTimeout(tmspec, stspec, enspec)
+
         finally:
           when hasThreadSupport:
             if pthread_sigmask(SIG_UNBLOCK, nmask, omask) == -1:
